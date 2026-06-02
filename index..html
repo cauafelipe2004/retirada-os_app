@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Retirada de OS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --bg:       #0d0d0d;
+  --surface:  #1a1a1a;
+  --surface2: #242424;
+  --border:   #2e2e2e;
+  --text:     #f0f0f0;
+  --text2:    #888;
+  --accent:   #e53935;
+  --accent2:  #ff6b6b;
+  --green:    #34a853;
+}
+
+body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); }
+
+/* HEADER */
+.header {
+  background: linear-gradient(135deg, #1a0000 0%, #2d0505 50%, #1a0000 100%);
+  border-bottom: 1px solid var(--accent);
+  color: #fff; padding: 16px;
+  display: flex; align-items: center; gap: 10px;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 20px rgba(229,57,53,.25);
+}
+.header h1 { font-size: 17px; font-weight: 700; letter-spacing: .3px; }
+.header p  { font-size: 11px; color: var(--accent2); margin-top: 2px; }
+
+/* TABS */
+.tabs {
+  display: flex; background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 53px; z-index: 99;
+}
+.tab {
+  flex: 1; padding: 14px 8px; text-align: center;
+  font-size: 13px; font-weight: 600; color: var(--text2);
+  cursor: pointer; border-bottom: 2px solid transparent;
+  margin-bottom: -1px; user-select: none; transition: color .2s;
+}
+.tab.ativo { color: var(--accent); border-bottom-color: var(--accent); }
+
+.tela { display: none; padding: 16px; max-width: 640px; margin: 0 auto; }
+.tela.ativa { display: block; }
+
+/* CARDS */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 18px 16px; margin-bottom: 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+}
+.card-title {
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 14px;
+}
+
+/* CAMPOS */
+.campo { margin-bottom: 12px; }
+.campo label { display: block; font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 6px; }
+input[type="text"] {
+  width: 100%; padding: 14px; border: 1px solid var(--border); border-radius: 10px;
+  font-size: 16px; background: var(--surface2); outline: none; -webkit-appearance: none;
+  transition: border-color .2s; color: var(--text);
+}
+input[type="text"]:focus { border-color: var(--accent); background: #1e1e1e; }
+input[type="text"]::placeholder { color: #444; }
+
+/* MULTI OS */
+#os-lista { margin-bottom: 8px; }
+.os-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.os-row input { flex: 1; margin: 0; }
+.os-num { font-size: 13px; font-weight: 700; color: #444; min-width: 22px; text-align: right; flex-shrink: 0; }
+.btn-del-os {
+  width: 46px; height: 48px; flex-shrink: 0; border: none; border-radius: 10px;
+  background: rgba(229,57,53,.15); color: var(--accent); font-size: 22px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: background .2s;
+}
+.btn-del-os:active { background: rgba(229,57,53,.3); }
+#btn-add-os {
+  width: 100%; padding: 13px; background: transparent; color: var(--accent);
+  border: 1.5px dashed var(--accent); border-radius: 10px;
+  font-size: 14px; font-weight: 700; cursor: pointer; transition: background .2s;
+}
+#btn-add-os:active { background: rgba(229,57,53,.1); }
+#btn-add-os:disabled { opacity: .3; }
+
+/* ASSINATURA */
+.sig-area {
+  position: relative; border-radius: 12px; overflow: hidden;
+  border: 1.5px dashed #333; background: #111; height: 180px;
+}
+.sig-area.ativa { border: 1.5px solid var(--accent); box-shadow: 0 0 0 3px rgba(229,57,53,.15); }
+#sig-canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.sig-hint {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 8px;
+  pointer-events: none; color: #333; font-size: 13px;
+}
+.btn-limpar {
+  margin-top: 8px; padding: 10px 18px; background: var(--surface2); color: var(--text2);
+  border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.btn-limpar:active { background: var(--border); }
+
+/* BOTÃO CONFIRMAR */
+#btn-confirmar {
+  width: 100%; padding: 17px;
+  background: linear-gradient(135deg, var(--accent) 0%, #c62828 100%);
+  color: #fff; border: none; border-radius: 14px; font-size: 17px; font-weight: 700;
+  cursor: pointer; box-shadow: 0 4px 20px rgba(229,57,53,.4); margin-bottom: 24px;
+  letter-spacing: .3px; transition: opacity .15s;
+}
+#btn-confirmar:active { opacity: .85; }
+
+/* ALERTA */
+#alerta { padding: 14px 16px; border-radius: 10px; margin-bottom: 14px; font-weight: 600; font-size: 14px; display: none; }
+.alerta-ok  { background: rgba(52,168,83,.15); color: #69f0ae; border: 1px solid rgba(52,168,83,.3); }
+.alerta-err { background: rgba(229,57,53,.15); color: var(--accent2); border: 1px solid rgba(229,57,53,.3); }
+
+/* REGISTROS */
+.busca-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.busca-row input { flex: 1; }
+.btn-pdf {
+  padding: 14px; flex-shrink: 0; background: var(--accent); color: #fff;
+  border: none; border-radius: 10px; font-size: 13px;
+  font-weight: 700; cursor: pointer; white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(229,57,53,.3); transition: opacity .15s;
+}
+.btn-pdf:active { opacity: .8; }
+.btn-limpar-reg {
+  width: 100%; padding: 12px; background: rgba(229,57,53,.08); color: var(--accent);
+  border: 1px solid rgba(229,57,53,.2); border-radius: 10px; font-size: 13px;
+  font-weight: 700; cursor: pointer; margin-bottom: 12px; transition: background .2s;
+}
+.btn-limpar-reg:active { background: rgba(229,57,53,.18); }
+.contagem { font-size: 12px; color: var(--text2); margin-bottom: 10px; }
+
+.reg {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 12px; cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.reg:active { background: var(--surface2); border-color: var(--accent); }
+.reg-info { flex: 1; min-width: 0; }
+.reg-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 5px; }
+.badge {
+  background: rgba(229,57,53,.15); color: var(--accent2);
+  font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px;
+  border: 1px solid rgba(229,57,53,.2);
+}
+.reg-tec  { font-size: 14px; color: var(--text); font-weight: 600; }
+.reg-data { font-size: 11px; color: var(--text2); margin-top: 3px; }
+.reg-sig img { height: 52px; max-width: 110px; border: 1px solid var(--border); border-radius: 8px; background: #111; pointer-events: none; }
+.reg-arrow { color: #333; font-size: 20px; flex-shrink: 0; }
+.btn-del-reg {
+  width: 40px; height: 40px; flex-shrink: 0; border: none; border-radius: 10px;
+  background: rgba(229,57,53,.12); color: var(--accent); font-size: 18px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: background .2s;
+}
+.btn-del-reg:active { background: rgba(229,57,53,.3); }
+.vazio { text-align: center; padding: 50px 20px; color: #333; font-size: 14px; }
+
+/* TÉCNICOS */
+.tec-item {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px 16px; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 12px;
+}
+.tec-nome { flex: 1; font-size: 14px; font-weight: 600; color: var(--text); }
+.tec-tag { font-size: 10px; color: var(--accent2); background: rgba(229,57,53,.12);
+  border: 1px solid rgba(229,57,53,.2); border-radius: 20px; padding: 2px 8px; }
+.btn-del-tec {
+  width: 36px; height: 36px; flex-shrink: 0; border: none; border-radius: 8px;
+  background: rgba(229,57,53,.12); color: var(--accent); font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-del-tec:active { background: rgba(229,57,53,.3); }
+.add-tec-row { display: flex; gap: 8px; margin-bottom: 14px; }
+.add-tec-row input { flex: 1; }
+.btn-add-tec {
+  padding: 14px 16px; background: var(--accent); color: #fff;
+  border: none; border-radius: 10px; font-size: 14px; font-weight: 700;
+  cursor: pointer; white-space: nowrap; transition: opacity .15s;
+}
+.btn-add-tec:active { opacity: .8; }
+
+/* MODAL */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,.92); align-items: center; justify-content: center; padding: 20px;
+}
+.modal-overlay.visivel { display: flex; }
+.modal-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; padding: 22px 20px;
+  max-width: 440px; width: 100%; animation: popIn .18s ease;
+}
+@keyframes popIn { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal-nome { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.modal-data { font-size: 12px; color: var(--text2); margin-bottom: 14px; }
+.modal-sig-img { background: #111; border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+.modal-sig-img img { width: 100%; display: block; border-radius: 6px; }
+.modal-os { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+.modal-label {
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 1px; margin-top: 14px; margin-bottom: 6px;
+}
+.modal-fechar {
+  width: 100%; padding: 14px; margin-top: 16px;
+  background: linear-gradient(135deg, var(--accent) 0%, #c62828 100%);
+  color: #fff; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(229,57,53,.35); transition: opacity .15s;
+}
+.modal-fechar:active { opacity: .85; }
+.btn-baixar-sig {
+  width: 100%; padding: 12px; margin-top: 8px;
+  background: var(--surface2); color: var(--text2);
+  border: 1px solid var(--border); border-radius: 12px;
+  font-size: 14px; font-weight: 600; cursor: pointer; transition: background .2s;
+}
+.btn-baixar-sig:active { background: var(--border); }
+
+/* CUSTOM SELECT */
+.custom-select { position: relative; }
+.custom-select input {
+  cursor: pointer; padding-right: 40px;
+  background: var(--surface2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='%23e53935'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") no-repeat right 12px center;
+}
+.custom-select input.aberto { border-color: var(--accent); }
+.cs-dropdown {
+  display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--surface); border: 1px solid var(--accent); border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.6); z-index: 50;
+  max-height: 280px; overflow: hidden;
+}
+.cs-dropdown.visivel { display: flex; flex-direction: column; }
+.cs-search {
+  padding: 10px 14px; border: none; border-bottom: 1px solid var(--border);
+  font-size: 15px; outline: none; width: 100%; border-radius: 12px 12px 0 0;
+  color: var(--text); background: var(--surface2); -webkit-appearance: none;
+}
+.cs-search::placeholder { color: #444; }
+.cs-lista { overflow-y: auto; flex: 1; }
+.cs-item {
+  padding: 13px 16px; font-size: 14px; color: var(--text); cursor: pointer;
+  border-bottom: 1px solid var(--border); transition: background .1s;
+}
+.cs-item:last-child { border-bottom: none; }
+.cs-item:active { background: rgba(229,57,53,.12); color: var(--accent2); }
+.cs-vazio { padding: 20px; text-align: center; color: var(--text2); font-size: 13px; }
+</style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#e53935">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Retirada OS">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('sw.js');
+    });
+  }
+</script>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Retirada de OS</h1>
+    <p>Técnicos SP</p>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab ativo" id="tab-nova"      onclick="irPara('nova')">Nova Retirada</div>
+  <div class="tab"       id="tab-registros" onclick="irPara('registros')">Registros</div>
+  <div class="tab"       id="tab-tecnicos"  onclick="irPara('tecnicos')">+ Técnicos</div>
+</div>
+
+<!-- TELA NOVA RETIRADA -->
+<div class="tela ativa" id="tela-nova">
+  <div id="alerta"></div>
+
+  <div class="card">
+    <div class="card-title">Números de OS <span id="os-contador" style="color:#ccc;font-weight:400;text-transform:none">(1/10)</span></div>
+    <div id="os-lista"></div>
+    <button id="btn-add-os">+ Adicionar OS</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Técnico Responsável</div>
+    <div class="campo">
+      <label>Nome</label>
+      <div class="custom-select" id="tecnico-wrap">
+        <input type="text" id="nome-tecnico" placeholder="Toque para buscar..." autocomplete="off" readonly>
+        <div class="cs-dropdown" id="tecnico-dropdown"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Assinatura do Técnico</div>
+    <div class="sig-area" id="sig-area">
+      <canvas id="sig-canvas"></canvas>
+      <div class="sig-hint" id="sig-hint">
+        <svg width="30" height="30" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+        </svg>
+        Assine aqui com o dedo
+      </div>
+    </div>
+    <button class="btn-limpar" id="btn-limpar">Limpar assinatura</button>
+  </div>
+
+  <button id="btn-confirmar">✓ Confirmar Retirada</button>
+</div>
+
+<!-- TELA REGISTROS -->
+<div class="tela" id="tela-registros">
+  <div class="busca-row">
+    <input type="text" id="busca" placeholder="Buscar OS ou técnico...">
+    <button class="btn-pdf"   id="btn-pdf-lote">⬇ PDF</button>
+  </div>
+  <button class="btn-limpar-reg" id="btn-limpar-reg">🗑 Limpar todos os registros</button>
+  <div class="contagem" id="contagem"></div>
+  <div id="lista-registros"></div>
+</div>
+
+<!-- TELA TÉCNICOS -->
+<div class="tela" id="tela-tecnicos">
+  <div class="card">
+    <div class="card-title">Cadastrar Novo Técnico</div>
+    <div class="add-tec-row">
+      <input type="text" id="novo-tec-input" placeholder="Nome completo" autocomplete="off">
+      <button class="btn-add-tec" id="btn-add-tec">+ Adicionar</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Técnicos Cadastrados</div>
+    <div id="lista-tec-extras"></div>
+  </div>
+</div>
+
+<!-- MODAL DETALHE -->
+<div class="modal-overlay" id="modal" onclick="fecharModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-nome" id="modal-nome"></div>
+    <div class="modal-data" id="modal-data"></div>
+    <div class="modal-label">Ordens de Serviço</div>
+    <div class="modal-os"   id="modal-os"></div>
+    <div class="modal-label" style="margin-top:16px">Assinatura</div>
+    <div class="modal-sig-img"><img id="modal-img" src="" alt="assinatura"></div>
+    <button class="btn-baixar-sig" id="btn-baixar-sig">⬇ Salvar comprovante em PDF</button>
+    <button class="modal-fechar" onclick="fecharModal()">Fechar</button>
+  </div>
+</div>
+
+
+<script>
+// =========================================================
+// NAVEGAÇÃO
+// =========================================================
+function irPara(t) {
+  ['nova','registros','tecnicos'].forEach(function(x) {
+    document.getElementById('tela-'+x).classList.toggle('ativa', x===t);
+    document.getElementById('tab-'+x).classList.toggle('ativo', x===t);
+  });
+  if (t==='registros') renderRegistros();
+  if (t==='tecnicos')  renderTecExtras();
+}
+
+// =========================================================
+// BANCO (IndexedDB)
+// =========================================================
+var db = null;
+function abrirBanco(cb) {
+  if (db) { cb(db); return; }
+  var r = indexedDB.open('os_sp_v1', 1);
+  r.onupgradeneeded = function(e) { e.target.result.createObjectStore('reg', {keyPath:'id'}); };
+  r.onsuccess  = function(e) { db = e.target.result; cb(db); };
+  r.onerror    = function()  { cb(null); };
+}
+function buscarTodos(cb) {
+  abrirBanco(function(d) {
+    if (!d) { cb([]); return; }
+    var r = d.transaction('reg','readonly').objectStore('reg').getAll();
+    r.onsuccess = function() { cb(r.result.sort(function(a,b){ return b.id-a.id; })); };
+    r.onerror   = function() { cb([]); };
+  });
+}
+function inserir(reg, cb) {
+  abrirBanco(function(d) {
+    if (!d) { cb(false); return; }
+    var tx = d.transaction('reg','readwrite');
+    tx.objectStore('reg').put(reg);
+    tx.oncomplete = function() { cb(true); };
+    tx.onerror    = function() { cb(false); };
+  });
+}
+
+// =========================================================
+// MULTI OS
+// =========================================================
+var MAX_OS = 10, osVals = [''];
+function renderOS() {
+  var h = '';
+  for (var i = 0; i < osVals.length; i++) {
+    h += '<div class="os-row">';
+    h += '<span class="os-num">'+(i+1)+'.</span>';
+    h += '<input type="text" class="os-input" placeholder="Ex: OS-001" value="'+escHtml(osVals[i])+'">';
+    if (osVals.length > 1) h += '<button class="btn-del-os" data-del="'+i+'" type="button">×</button>';
+    h += '</div>';
+  }
+  document.getElementById('os-lista').innerHTML = h;
+  document.getElementById('os-contador').textContent = '('+osVals.length+'/10)';
+  document.getElementById('btn-add-os').disabled = osVals.length >= MAX_OS;
+}
+function capOS() { document.querySelectorAll('.os-input').forEach(function(x,i){ osVals[i]=x.value; }); }
+function getOS() { capOS(); return osVals.map(function(v){ return v.trim(); }).filter(function(v){ return v!==''; }); }
+function resetOS() { osVals=['']; renderOS(); }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+document.getElementById('btn-add-os').addEventListener('click', function() {
+  capOS(); if (osVals.length >= MAX_OS) return;
+  osVals.push(''); renderOS();
+  var inp = document.querySelectorAll('.os-input');
+  inp[inp.length-1].focus();
+});
+document.getElementById('os-lista').addEventListener('click', function(e) {
+  var b = e.target.closest('[data-del]'); if (!b) return;
+  capOS(); osVals.splice(parseInt(b.getAttribute('data-del')),1); renderOS();
+});
+
+// =========================================================
+// CANVAS ASSINATURA
+// =========================================================
+var canvas = document.getElementById('sig-canvas');
+var sigArea = document.getElementById('sig-area');
+var sigHint = document.getElementById('sig-hint');
+var ctx = null, desenhando = false, temAssinatura = false, ux = 0, uy = 0;
+
+function setupCanvas() {
+  var w = sigArea.offsetWidth, h = sigArea.offsetHeight;
+  if (!w || !h) { setTimeout(setupCanvas, 80); return; }
+  var r = window.devicePixelRatio || 1;
+  canvas.width  = w * r; canvas.height = h * r;
+  canvas.style.width = w+'px'; canvas.style.height = h+'px';
+  ctx = canvas.getContext('2d');
+  ctx.scale(r, r);
+  ctx.fillStyle = '#111111'; ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  temAssinatura = false;
+}
+function posRel(e) {
+  var rect = canvas.getBoundingClientRect();
+  var src = e.touches ? e.touches[0] : e;
+  return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+}
+function iniciar(e) {
+  e.preventDefault(); desenhando = true;
+  var p = posRel(e); ux = p.x; uy = p.y;
+  ctx.beginPath(); ctx.arc(p.x,p.y,1.2,0,Math.PI*2);
+  ctx.fillStyle='#ffffff'; ctx.fill();
+  sigHint.style.display='none'; sigArea.classList.add('ativa'); temAssinatura=true;
+}
+function continuar(e) {
+  e.preventDefault(); if (!desenhando) return;
+  var p = posRel(e);
+  ctx.beginPath(); ctx.moveTo(ux,uy); ctx.lineTo(p.x,p.y); ctx.stroke();
+  ux=p.x; uy=p.y;
+}
+function parar(e) { e.preventDefault(); desenhando=false; }
+
+canvas.addEventListener('touchstart',  iniciar,   {passive:false});
+canvas.addEventListener('touchmove',   continuar, {passive:false});
+canvas.addEventListener('touchend',    parar,     {passive:false});
+canvas.addEventListener('touchcancel', parar,     {passive:false});
+canvas.addEventListener('mousedown',   iniciar);
+canvas.addEventListener('mousemove',   continuar);
+canvas.addEventListener('mouseup',     parar);
+canvas.addEventListener('mouseleave',  parar);
+
+function limparAssinatura() {
+  if (!ctx) return;
+  var w = canvas.width/(window.devicePixelRatio||1);
+  var h = canvas.height/(window.devicePixelRatio||1);
+  ctx.fillStyle='#111111'; ctx.fillRect(0,0,w,h);
+  sigHint.style.display='flex'; sigArea.classList.remove('ativa'); temAssinatura=false;
+}
+document.getElementById('btn-limpar').addEventListener('click', limparAssinatura);
+
+// =========================================================
+// ALERTA
+// =========================================================
+function alerta(msg, tipo) {
+  var el = document.getElementById('alerta');
+  el.textContent = msg;
+  el.className = tipo==='ok' ? 'alerta-ok' : 'alerta-err';
+  el.style.display = 'block';
+  setTimeout(function(){ el.style.display='none'; }, 4000);
+}
+
+// =========================================================
+// CONFIRMAR RETIRADA
+// =========================================================
+document.getElementById('btn-confirmar').addEventListener('click', function() {
+  var nums = getOS();
+  var tec  = document.getElementById('nome-tecnico').value.trim();
+  if (!nums.length)   { alerta('Informe ao menos um número de OS.','err'); return; }
+  if (!tec)           { alerta('Informe o nome do técnico.','err'); return; }
+  if (!temAssinatura) { alerta('O técnico precisa assinar antes de confirmar.','err'); return; }
+
+  var now = new Date();
+  var dh  = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+
+  inserir({
+    id: now.getTime(),
+    numeros: nums,
+    tecnico: tec,
+    dataHora: dh,
+    assinatura: canvas.toDataURL('image/png')
+  }, function(ok) {
+    if (ok) {
+      alerta('✓ ' + nums.length + ' OS registrada'+(nums.length>1?'s':'')+' com sucesso!','ok');
+      document.getElementById('nome-tecnico').value = '';
+      resetOS();
+      limparAssinatura();
+    } else {
+      alerta('Erro ao salvar. Tente novamente.','err');
+    }
+  });
+});
+
+// =========================================================
+// REGISTROS
+// =========================================================
+var cache = [];
+document.getElementById('busca').addEventListener('input', renderRegistros);
+
+function renderRegistros() {
+  var q = document.getElementById('busca').value.toLowerCase();
+  buscarTodos(function(todos) {
+    cache = todos;
+    var lista = q ? todos.filter(function(r) {
+      return r.numeros.join(' ').toLowerCase().includes(q) || r.tecnico.toLowerCase().includes(q);
+    }) : todos;
+
+    document.getElementById('contagem').textContent = lista.length + ' registro(s)';
+
+    if (!lista.length) {
+      document.getElementById('lista-registros').innerHTML = '<div class="vazio">Nenhum registro encontrado.</div>';
+      return;
+    }
+
+    document.getElementById('lista-registros').innerHTML = lista.map(function(r) {
+      var badges = r.numeros.map(function(n){ return '<span class="badge">'+escHtml(n)+'</span>'; }).join('');
+      var thumb  = r.assinatura ? '<div class="reg-sig"><img src="'+r.assinatura+'" alt="sig"></div>' : '';
+      return '<div class="reg" data-id="'+r.id+'">'+
+        '<div class="reg-info" style="cursor:pointer" data-open="'+r.id+'">'+
+          '<div class="reg-badges">'+badges+'</div>'+
+          '<div class="reg-tec">'+escHtml(r.tecnico)+'</div>'+
+          '<div class="reg-data">'+escHtml(r.dataHora)+'</div>'+
+        '</div>'+
+        thumb+
+        '<button class="btn-del-reg" data-del="'+r.id+'" title="Excluir">🗑</button>'+
+      '</div>';
+    }).join('');
+
+    // Abrir modal ao clicar nas infos
+    document.querySelectorAll('[data-open]').forEach(function(el) {
+      el.addEventListener('click', function() {
+        var id  = parseInt(el.getAttribute('data-open'));
+        var reg = cache.find(function(r){ return r.id===id; });
+        if (reg) abrirModal(reg);
+      });
+    });
+
+    // Excluir registro individual
+    document.querySelectorAll('.btn-del-reg').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var id = parseInt(btn.getAttribute('data-del'));
+        var reg = cache.find(function(r){ return r.id===id; });
+        var nome = reg ? reg.tecnico.split(' ')[0] : 'este registro';
+        if (!confirm('Excluir o registro de ' + nome + '?')) return;
+        abrirBanco(function(d) {
+          if (!d) return;
+          var tx = d.transaction('reg','readwrite');
+          tx.objectStore('reg').delete(id);
+          tx.oncomplete = function() { renderRegistros(); };
+        });
+      });
+    });
+  });
+}
+
+// =========================================================
+// MODAL
+// =========================================================
+var regAtual = null;
+
+function abrirModal(reg) {
+  regAtual = reg;
+  document.getElementById('modal-nome').textContent = reg.tecnico;
+  document.getElementById('modal-data').textContent = '📅 ' + reg.dataHora;
+  document.getElementById('modal-img').src = reg.assinatura || '';
+  document.getElementById('modal-os').innerHTML = reg.numeros.map(function(n){
+    return '<span class="badge">'+escHtml(n)+'</span>';
+  }).join('');
+  document.getElementById('modal').classList.add('visivel');
+}
+function fecharModal() {
+  document.getElementById('modal').classList.remove('visivel');
+  regAtual = null;
+}
+
+// Botão salvar comprovante PDF
+document.getElementById('btn-baixar-sig').addEventListener('click', function() {
+  if (!regAtual || !regAtual.assinatura) return;
+  if (typeof jspdf === 'undefined' || !jspdf.jsPDF) { alert('Biblioteca PDF não carregou. Verifique a conexão.'); return; }
+
+  var doc = new jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  var pW = doc.internal.pageSize.getWidth();
+
+  // Cabeçalho azul
+  doc.setFillColor(26, 115, 232);
+  doc.rect(0, 0, pW, 28, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16); doc.setFont('helvetica','bold');
+  doc.text('Comprovante de Retirada de OS', pW/2, 12, {align:'center'});
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text('Gerado em: ' + new Date().toLocaleString('pt-BR'), pW/2, 21, {align:'center'});
+
+  // Corpo
+  doc.setTextColor(34, 34, 34);
+  var y = 40;
+
+  // Técnico
+  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('TÉCNICO RESPONSÁVEL', 14, y);
+  doc.setFontSize(13); doc.setFont('helvetica','normal');
+  doc.text(regAtual.tecnico, 14, y + 7);
+  y += 20;
+
+  // Data/hora
+  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('DATA / HORA', 14, y);
+  doc.setFontSize(12); doc.setFont('helvetica','normal');
+  doc.text(regAtual.dataHora, 14, y + 7);
+  y += 20;
+
+  // OS
+  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('ORDENS DE SERVIÇO', 14, y);
+  y += 7;
+  doc.setFontSize(12); doc.setFont('helvetica','normal');
+  var osTexto = regAtual.numeros.join('   |   ');
+  var osLinhas = doc.splitTextToSize(osTexto, pW - 28);
+  doc.text(osLinhas, 14, y);
+  y += osLinhas.length * 6 + 14;
+
+  // Linha divisória
+  doc.setDrawColor(200, 200, 200);
+  doc.line(14, y, pW - 14, y);
+  y += 10;
+
+  // Assinatura
+  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('ASSINATURA DO TÉCNICO', 14, y);
+  y += 6;
+
+  // Caixa da assinatura
+  var sigW = pW - 28, sigH = 45;
+  doc.setFillColor(250, 250, 250);
+  doc.setDrawColor(220, 220, 220);
+  doc.roundedRect(14, y, sigW, sigH, 3, 3, 'FD');
+  try {
+    doc.addImage(regAtual.assinatura, 'PNG', 16, y+2, sigW-4, sigH-4);
+  } catch(e) {}
+  y += sigH + 14;
+
+  // Rodapé
+  doc.setDrawColor(200,200,200); doc.line(14, y, pW-14, y); y += 6;
+  doc.setFontSize(8); doc.setTextColor(150,150,150); doc.setFont('helvetica','italic');
+  doc.text('Este documento comprova que o técnico acima retirou as OS listadas e assinou digitalmente.', pW/2, y, {align:'center'});
+
+  var nomePdf = 'comprovante_' + regAtual.tecnico.replace(/\s+/g,'_').substring(0,25) + '_' + regAtual.dataHora.replace(/[\/: ]/g,'-') + '.pdf';
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  if (isIOS) {
+    doc.output('dataurlnewwindow');
+  } else {
+    doc.save(nomePdf);
+  }
+});
+
+// =========================================================
+// FUNÇÃO AUXILIAR: adiciona comprovante de um registro ao doc PDF
+// =========================================================
+function adicionarPaginaPDF(doc, reg, geradoEm) {
+  var pW = doc.internal.pageSize.getWidth();
+
+  // Cabeçalho azul
+  doc.setFillColor(26, 115, 232);
+  doc.rect(0, 0, pW, 28, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16); doc.setFont('helvetica','bold');
+  doc.text('Comprovante de Retirada de OS', pW/2, 12, {align:'center'});
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text('Gerado em: ' + geradoEm, pW/2, 21, {align:'center'});
+
+  doc.setTextColor(34, 34, 34);
+  var y = 40;
+
+  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('TÉCNICO RESPONSÁVEL', 14, y);
+  doc.setFontSize(13); doc.setFont('helvetica','normal');
+  doc.text(reg.tecnico, 14, y + 7);
+  y += 20;
+
+  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('DATA / HORA', 14, y);
+  doc.setFontSize(12); doc.setFont('helvetica','normal');
+  doc.text(reg.dataHora, 14, y + 7);
+  y += 20;
+
+  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('ORDENS DE SERVIÇO', 14, y);
+  y += 7;
+  doc.setFontSize(12); doc.setFont('helvetica','normal');
+  var osTexto = reg.numeros.join('   |   ');
+  var osLinhas = doc.splitTextToSize(osTexto, pW - 28);
+  doc.text(osLinhas, 14, y);
+  y += osLinhas.length * 6 + 14;
+
+  doc.setDrawColor(200, 200, 200);
+  doc.line(14, y, pW - 14, y);
+  y += 10;
+
+  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('ASSINATURA DO TÉCNICO', 14, y);
+  y += 6;
+
+  var sigW = pW - 28, sigH = 45;
+  doc.setFillColor(250, 250, 250);
+  doc.setDrawColor(220, 220, 220);
+  doc.roundedRect(14, y, sigW, sigH, 3, 3, 'FD');
+  if (reg.assinatura) {
+    try { doc.addImage(reg.assinatura, 'PNG', 16, y+2, sigW-4, sigH-4); } catch(e) {}
+  }
+  y += sigH + 14;
+
+  doc.setDrawColor(200,200,200); doc.line(14, y, pW-14, y); y += 6;
+  doc.setFontSize(8); doc.setTextColor(150,150,150); doc.setFont('helvetica','italic');
+  doc.text('Este documento comprova que o técnico acima retirou as OS listadas e assinou digitalmente.', pW/2, y, {align:'center'});
+}
+
+// =========================================================
+// BOTÃO PDF EM LOTE
+// =========================================================
+document.getElementById('btn-pdf-lote').addEventListener('click', function() {
+  buscarTodos(function(lista) {
+    if (!lista.length) { alert('Nenhum registro para exportar.'); return; }
+    if (typeof jspdf === 'undefined' || !jspdf.jsPDF) { alert('Biblioteca PDF não carregou. Verifique a conexão.'); return; }
+
+    // Filtra pelos registros visíveis na busca atual
+    var q = document.getElementById('busca').value.toLowerCase().trim();
+    var registros = q ? lista.filter(function(r) {
+      return r.numeros.join(' ').toLowerCase().includes(q) || r.tecnico.toLowerCase().includes(q);
+    }) : lista;
+
+    if (!registros.length) { alert('Nenhum registro encontrado para exportar.'); return; }
+
+    var doc = new jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    var geradoEm = new Date().toLocaleString('pt-BR');
+
+    registros.forEach(function(reg, i) {
+      if (i > 0) doc.addPage();
+      adicionarPaginaPDF(doc, reg, geradoEm);
+    });
+
+    var nomePdf = 'comprovantes_' + new Date().toLocaleDateString('pt-BR').replace(/\//g,'-') + '_(' + registros.length + 'regs).pdf';
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    if (isIOS) {
+      doc.output('dataurlnewwindow');
+    } else {
+      doc.save(nomePdf);
+    }
+  });
+});
+
+// =========================================================
+// LIMPAR REGISTROS
+// =========================================================
+document.getElementById('btn-limpar-reg').addEventListener('click', function() {
+  if (!confirm('Tem certeza? Todos os registros serão apagados permanentemente.')) return;
+  abrirBanco(function(d) {
+    if (!d) return;
+    var tx = d.transaction('reg', 'readwrite');
+    tx.objectStore('reg').clear();
+    tx.oncomplete = function() { renderRegistros(); };
+  });
+});
+
+// =========================================================
+// LISTA DE TÉCNICOS SP
+// =========================================================
+var TECNICOS = [
+  "ABRAAO MENEZES DE FRANÇA","ANDERSON DA CUNHA MENDONÇA","ANDERSON MANOEL DA SILVA",
+  "ANDERSON RODRIGUES","ANDERSON SERATO RUIZ (SP)","ANTONIO VITOR VENANCIO DIAS (SP)",
+  "APARECIDO AUGUSTO ROMERO (SP)","CARLOS ALBERTO FERRARA MORAIS","CARLOS VINICIUS R DAMASCENA",
+  "CLAUDIO GABRIEL AZEVEDO DE SOUZA","CLAUDIO ROBERTO PACHECO","CLEDNILSON APARECIDO MOVIO JUNIORM (RP)",
+  "CRISTIANO DOLISNI PINTO","CRISTOFFER GAMA DO NASCIMENTO","DANIELA INACIA DE SOUZA",
+  "EDEZIO ZACARIAS DE SANTANA FILHO","EDGARD DA SILVA FURLAN","EDILSON MONTEIRO DE SOUZA",
+  "EDUARDO ANDERSON UNRUH (SP)","EDUARDO CLAUDIO DE LIMA","EDUARDO EXPEDITO MACIEL LACERDA",
+  "EDUARDO MARANINI DA SILVA","EDUARDO SANTOS DE SOUZA","EDUARDO TRINDADE DOS SANTOS (SP)",
+  "ERIVALDO SILVA FRANÇA","EVANDRO JOSE DE FREITAS BARBOSA (SP)","EVANIO DE CARVALHO BARBOSA",
+  "EVERTON PINTO DA SILVA","FABIO BERNABE BARBOSA (CAMPINAS)","FABIO DOS SANTOS OLIVEIRA",
+  "FALVIO GOMES FERREIRA ARAUJO (SP)","FARLEI MAGNO FERREIRA DA SILVA","FELIPE AZEVEDO DE SOUZA",
+  "FELIPE DE OLIVEIRA GRAÇA","FELIPE GARCIA DE MELO (LEROY)","FELIPE RODRIGUES CASTILHO MACEDO (SP)",
+  "FERNANDO SILVA MOREIRA","FLAVIO GOMES FERREIRA ARAUJO (SP)","GILMAR AP. MOURA DE CARVALHO",
+  "GUILHERME BISPO DOS SANTOS","HELCTOR AUGUSTO COSTA","HERICK WILLIAN SOUZA PEREIRA",
+  "HERMES HENRIQUE SANTOS DE SOUZA (SP)","IGO DE ARAUJO","IVO NORBERTO FERREIRA (SP)",
+  "JEFFERSON RODRIGUES DA CUNHA","JHONATAS FRANCISCO DOS SANTOS","JOAO FABIO PANTOJA BARBOSA",
+  "JOAO ROBERTO FERREIRA DO CARMO","JOAO VITOR DE CARVALHO VETTORI (RP)","JONATAS FERREIRA SANTOS SILVA",
+  "JOSE APARECIDO PASCHOAL","JOSE CARLOS DE CONCEIÇÃO MALAQUIAS","JOSE HIGOR VARGAS MARTINS",
+  "JOSE RICARDO BARABAN","JOSE ROBERTO SOUZA (SP)","JOÃO CARLOS MINIZ R SILVA",
+  "JOÃO CARLOS MUNIZ ROVARON SILVA","JOÃO GABRIEL PRATES DA SILVA (SP)","JOÃO SILVA JUNIOR",
+  "Katiane Carneiro da Silva","LEANDRO DE SOUZA GOMES","LEIDSON SANTOS CARDOSO BORGES",
+  "LEONARDO LAERCIO FERRARI","LORENZO DELGADO PEREIRA","LUCIANA MARANINI DA SILVA",
+  "LUIS DANIEL VANHONI DE OLIVEIRA","LUIZ HENRIQUE MUNIZ (PERUIBE)","MARCELO GOMES DA SILVA (SP)",
+  "MARCELO MENNELA DE JESUS","MARCELO REBECHI","MARCELO SALAAR FACCO","MARCELO SANCHES",
+  "MARCO ANTONIO MUNIZ ROVARON SILVA","MARCO DOUGLAS DE AMORIM ANDRADE","MARCOS JOSE PEREIRA",
+  "MARCOS LUIS INACIO","MATEUS VINICIUS TORRES DA SILVEIRA","MICHAEL LUIZ DOS SANTOS HORA",
+  "MICHEL ZACARIAS DE SANTANA","ODILMAR DA SILVA GARCIA","ORLANDO FERNANDES","OSCAR DOS SANTOS SOUZA",
+  "PALOMA ESTEFANE ALBERTINO DE VASCONCELOS","PAULO CESAR SERAFIM","PEDRO FRANCISCO DE SANT ANA NASCIMENTO",
+  "PEDRO RICARDO ALBERTINI","RAFAEL DINAMON GERMIN","RAFAEL DINAMON GERMIN BASE SAFRA",
+  "RAFAEL FREITAS FERNANDES","RAIMUNDO MESSIAS DO NASCIMENTO","REGINALDO LUIZ FRANCHINI",
+  "RENATO RICARTE DE OLIVEIRA (SP)","RICARDO AUGUSTO BEZERRA SILVIA","ROBERTO IBIAPINO RODRIGUES",
+  "ROBERTO ORSOLON BRAGION","ROBLEGO RAGLICIO CESAR PAIAO","ROBSON FILHO DA SILVA","RODNEI DE SOUSA",
+  "RODRIGO DE SOUZA ALVES","RODRIGO DOS SANTOS NAPOLITANO","RODRIGO DOS SANTOS NAPOLITANO BASE",
+  "RODRIGO NAPOLEÃO","ROGER FERREIRA GASPAR","ROGERIO HEREDIA","RUI PEREIRA DA COSTA JUNIOR",
+  "SIDNEI SINEDRIO MASCARENHA CONFIDENCE","SIDNEI SINEDRIO MASCARENHA DE SOUZA EXPRESS",
+  "TIAGO LEONEL BARRETO","VALDIR DOS SANTOS SILVA","VINICIUS CORREIA QUEIROZ GRAÇA (SP)",
+  "WILLIAM ALMEIDA ADAN","WILLIAM SOUZA AGUIAR PEREIRA"
+];
+
+var inputTec = document.getElementById('nome-tecnico');
+var dropdown = document.getElementById('tecnico-dropdown');
+var dropAberto = false;
+
+function abrirDropdown() {
+  dropdown.innerHTML =
+    '<input type="text" class="cs-search" id="cs-search" placeholder="Buscar técnico...">' +
+    '<div class="cs-lista" id="cs-lista"></div>';
+  filtrarTecs('');
+  dropdown.classList.add('visivel');
+  inputTec.classList.add('aberto');
+  dropAberto = true;
+  setTimeout(function() {
+    var s = document.getElementById('cs-search');
+    if (s) { s.focus(); s.addEventListener('input', function(){ filtrarTecs(s.value); }); }
+  }, 50);
+}
+function fecharDropdown() {
+  dropdown.classList.remove('visivel');
+  inputTec.classList.remove('aberto');
+  dropAberto = false;
+}
+function getTecExtras() {
+  try { return JSON.parse(localStorage.getItem('tec_extras') || '[]'); } catch(e) { return []; }
+}
+function saveTecExtras(arr) { localStorage.setItem('tec_extras', JSON.stringify(arr)); }
+
+function filtrarTecs(q) {
+  var lista = document.getElementById('cs-lista'); if (!lista) return;
+  var termo = q.toLowerCase().trim();
+  var todos = TECNICOS.concat(getTecExtras()).sort(function(a,b){ return a.localeCompare(b); });
+  var f = termo ? todos.filter(function(t){ return t.toLowerCase().includes(termo); }) : todos;
+  if (!f.length) { lista.innerHTML = '<div class="cs-vazio">Nenhum técnico encontrado</div>'; return; }
+  lista.innerHTML = f.map(function(t){
+    return '<div class="cs-item" data-nome="'+escHtml(t)+'">'+escHtml(t)+'</div>';
+  }).join('');
+  lista.querySelectorAll('.cs-item').forEach(function(el) {
+    el.addEventListener('click', function(){ inputTec.value=el.getAttribute('data-nome'); fecharDropdown(); });
+    el.addEventListener('touchend', function(e){ e.preventDefault(); inputTec.value=el.getAttribute('data-nome'); fecharDropdown(); });
+  });
+}
+
+function renderTecExtras() {
+  var extras = getTecExtras();
+  var el = document.getElementById('lista-tec-extras');
+  if (!extras.length) { el.innerHTML = '<div class="vazio">Nenhum técnico cadastrado ainda.</div>'; return; }
+  el.innerHTML = extras.map(function(t, i) {
+    return '<div class="tec-item">'+'<span class="tec-nome">'+escHtml(t)+'</span>'+'<span class="tec-tag">Cadastrado</span>'+'<button class="btn-del-tec" data-idx="'+i+'">🗑</button>'+'</div>';
+  }).join('');
+  el.querySelectorAll('.btn-del-tec').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var idx = parseInt(btn.getAttribute('data-idx'));
+      var arr = getTecExtras();
+      if (!confirm('Remover "' + arr[idx] + '"?')) return;
+      arr.splice(idx, 1); saveTecExtras(arr); renderTecExtras();
+    });
+  });
+}
+
+document.getElementById('btn-add-tec').addEventListener('click', function() {
+  var inp = document.getElementById('novo-tec-input');
+  var nome = inp.value.trim().toUpperCase();
+  if (!nome) return;
+  var arr = getTecExtras();
+  var todos = TECNICOS.concat(arr).map(function(t){ return t.toUpperCase(); });
+  if (todos.indexOf(nome) !== -1) { alert('Técnico já cadastrado.'); return; }
+  arr.push(nome); saveTecExtras(arr);
+  inp.value = ''; renderTecExtras();
+});
+document.getElementById('novo-tec-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('btn-add-tec').click();
+});
+
+inputTec.addEventListener('click', function(e){ e.stopPropagation(); dropAberto ? fecharDropdown() : abrirDropdown(); });
+inputTec.addEventListener('touchend', function(e){ e.preventDefault(); e.stopPropagation(); dropAberto ? fecharDropdown() : abrirDropdown(); });
+document.addEventListener('click', function(){ if(dropAberto) fecharDropdown(); });
+
+// =========================================================
+// INIT
+// =========================================================
+renderOS();
+window.addEventListener('load', function(){ setTimeout(setupCanvas, 150); });
+</script>
+</body>
+</html>
